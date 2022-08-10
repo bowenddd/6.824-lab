@@ -97,7 +97,7 @@ else
   failed_any=1
 fi
 
-# wait for remaining workers and coordinator to exit.
+#wait for remaining workers and coordinator to exit.
 wait
 
 #########################################################

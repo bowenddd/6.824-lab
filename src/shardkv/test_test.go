@@ -1,15 +1,11 @@
 package shardkv
 
-import "6.824/porcupine"
-import "6.824/models"
-import "testing"
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+	"testing"
+)
 import "time"
-import "fmt"
-import "sync/atomic"
-import "sync"
-import "math/rand"
-import "io/ioutil"
 
 const linearizabilityCheckTimeout = 1 * time.Second
 
@@ -23,6 +19,7 @@ func check(t *testing.T, ck *Clerk, key string, value string) {
 //
 // test static 2-way sharding, without shard movement.
 //
+/*
 func TestStaticShards(t *testing.T) {
 	fmt.Printf("Test: static shards ...\n")
 
@@ -93,7 +90,7 @@ func TestStaticShards(t *testing.T) {
 
 	fmt.Printf("  ... Passed\n")
 }
-
+*/
 func TestJoinLeave(t *testing.T) {
 	fmt.Printf("Test: join then leave ...\n")
 
@@ -134,7 +131,7 @@ func TestJoinLeave(t *testing.T) {
 		va[i] += x
 	}
 
-	// allow time for shards to transfer.
+	//allow time for shards to transfer.
 	time.Sleep(1 * time.Second)
 
 	cfg.checklogs()
@@ -147,6 +144,7 @@ func TestJoinLeave(t *testing.T) {
 	fmt.Printf("  ... Passed\n")
 }
 
+/*
 func TestSnapshot(t *testing.T) {
 	fmt.Printf("Test: snapshots, join, and leave ...\n")
 
@@ -891,6 +889,9 @@ func TestChallenge2Unaffected(t *testing.T) {
 // have been received as a part of a config migration when the entire migration
 // has not yet completed.
 //
+
+*/
+/*
 func TestChallenge2Partial(t *testing.T) {
 	fmt.Printf("Test: partial migration shard access (challenge 2) ...\n")
 
@@ -946,3 +947,4 @@ func TestChallenge2Partial(t *testing.T) {
 
 	fmt.Printf("  ... Passed\n")
 }
+*/

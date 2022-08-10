@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -107,7 +106,6 @@ type Raft struct {
 	commitLog     []bool
 	kvServRequest bool
 	kvUUIDSET     map[string]UUIDEXISTS
-	restarted     bool
 }
 
 // return currentTerm and whether this server
@@ -221,28 +219,6 @@ func (rf *Raft) readPersist(data []byte) {
 		}
 	}
 	fmt.Printf("rf %d restart lastIndex is %d snapshotIndex is %d\n", rf.me, rf.lastLogIndex, rf.snapshotIndex)
-	fmt.Printf("rf %d restart logEntries is %v,committed is %v\n", rf.me, rf.entryLog, rf.commited)
-	rf.restarted = true
-	go func() {
-		rf.mu.Lock()
-		lastCommited := int(math.Max(float64(rf.commited), float64(rf.snapshotIndex)))
-		lastLogIndex := rf.lastLogIndex
-		rf.mu.Unlock()
-		for i := lastCommited + 1; i <= lastLogIndex; i++ {
-			applyMsg := ApplyMsg{
-				CommandValid: true,
-				Command:      rf.entryLog[i-1].Command,
-				CommandIndex: i}
-			//rand.Seed(time.Now().Unix() + int64(math.Pow(float64(rf.me+100), 3))*1551)
-			//timeout := (rand.Intn(10) + 1) * 50
-			//time.Sleep(time.Duration(timeout) * time.Millisecond)
-			//DPrintf("send msg %v to ch\n", applyMsg)
-			rf.applyCh <- applyMsg
-			rf.mu.Lock()
-			rf.commited = i
-			rf.mu.Unlock()
-		}
-	}()
 	// Example:
 	// r := bytes.NewBuffer(data)
 	// d := labgob.NewDecoder(r)
@@ -539,9 +515,7 @@ func (rf *Raft) AppendEntriesRPC(args *AppendEntriesArgs, reply *AppendEntriesRe
 				//if !(entry.Term == rf.lastLogTerm && entry.Command == rf.entryLog[rf.lastLogIndex-1].Command) {
 				//	rf.addEntryToLog(rf.lastLogIndex, entry)
 				//}
-				// for lab4A
-				// if entry.Command != rf.entryLog[rf.lastLogIndex-1].Command
-				if !reflect.DeepEqual(entry.Command, rf.entryLog[rf.lastLogIndex-1].Command) {
+				if entry.Command != rf.entryLog[rf.lastLogIndex-1].Command {
 					rf.addEntryToLog(rf.lastLogIndex, entry)
 				} else if entry.Term != rf.lastLogTerm {
 					oldEntry := rf.entryLog[rf.lastLogIndex-1]
@@ -769,7 +743,7 @@ func (rf *Raft) logAgreement(command interface{}) (int, int, bool) {
 	entries := []LogEntry{}
 	entries = append(entries, entry)
 	DPrintf("a new entry %v send to leader %d\n", entries, rf.me)
-	//fmt.Printf("a new entry %v send to leader %d\n", entries, rf.me)
+	//fmt.Printf("a new entry send to leader %d\n", rf.me)
 	args := AppendEntriesArgs{
 		Term:         rf.currentTerm,
 		LeaderId:     rf.me,
@@ -778,9 +752,7 @@ func (rf *Raft) logAgreement(command interface{}) (int, int, bool) {
 		Entries:      entries,
 		LeaderCommit: rf.commited}
 	var index, term int
-	// lab 4a
-	// rf.lastLogIndex > 0 && rf.entryLog[rf.lastLogIndex-1].Command == command
-	if rf.lastLogIndex > 0 && reflect.DeepEqual(rf.entryLog[rf.lastLogIndex-1].Command, command) {
+	if rf.lastLogIndex > 0 && rf.entryLog[rf.lastLogIndex-1].Command == command {
 		index = rf.lastLogIndex
 		term = rf.currentTerm
 		oldEntry := rf.entryLog[rf.lastLogIndex-1]
@@ -1303,20 +1275,17 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.mu.Unlock()
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
+	// start ticker goroutine to start elections
+	go rf.ticker()
 	// 接收 applyMsg
 	go func() {
 		for applyMsg := range rf.applyCh {
 			//rand.Seed(time.Now().Unix() + int64(math.Pow(float64(rf.me+100), 3))*1551)
 			//timeout := (rand.Intn(5) + 1) * 200
 			//time.Sleep(time.Duration(timeout) * time.Millisecond)
-			if rf.restarted == true {
-				fmt.Printf("applyMsg is %v\n", applyMsg)
-			}
 			applyCh <- applyMsg
 			//DPrintf("%d get commit msg %v\n", rf.me, applyMsg)
 		}
 	}()
-	// start ticker goroutine to start elections
-	go rf.ticker()
 	return rf
 }

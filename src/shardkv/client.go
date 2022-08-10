@@ -19,14 +19,6 @@ import "time"
 // please use this function,
 // and please do not change it.
 //
-func key2shard(key string) int {
-	shard := 0
-	if len(key) > 0 {
-		shard = int(key[0])
-	}
-	shard %= shardctrler.NShards
-	return shard
-}
 
 func nrand() int64 {
 	max := big.NewInt(int64(1) << 62)
@@ -59,16 +51,28 @@ func MakeClerk(ctrlers []*labrpc.ClientEnd, make_end func(string) *labrpc.Client
 	return ck
 }
 
+// 这里说一下我的理解，就是无论是kv服务器的客户端，还是kv服务器的服务器部分都要去访问shardctrler去拿到分片信息的configuration来去找分片
+// shardctrler也分为客户端和服务器，这里kv服务器的客户端和服务器只要访问shardctrler的客户端即可， 客户端会遍历所有的shardctrler的服务器
+// 从leader中拿最新的configuration数据。
+
 //
 // fetch the current value for a key.
 // returns "" if the key does not exist.
 // keeps trying forever in the face of all other errors.
 // You will have to modify this function.
 //
+
+// 说一下shardkv客户端的操作，首先一个key进来，先通过
+// key2shard方法找到这个key属于哪一个shard，因为shard是
+// 通过hash实现的，实际上一个key只能在一个shard中，然后根据这个
+// shard找到这个shard是有哪一个gid组来管理的，gid和shard是一对多的关系
+// 一个gid可以管理多个shard
+// 找到gid之后就可以根据Groups找出这个gid是由哪些raft服务器（也就是shardkvserver）来实现一致性的，
+// 然后客户端向这些server发送rpc来完成相应的操作。
 func (ck *Clerk) Get(key string) string {
 	args := GetArgs{}
 	args.Key = key
-
+	args.UUID = generateUUID()
 	for {
 		shard := key2shard(key)
 		gid := ck.config.Shards[shard]
@@ -104,8 +108,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	args.Key = key
 	args.Value = value
 	args.Op = op
-
-
+	args.UUID = generateUUID()
 	for {
 		shard := key2shard(key)
 		gid := ck.config.Shards[shard]

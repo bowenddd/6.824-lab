@@ -4,7 +4,14 @@ package shardctrler
 // Shardctrler clerk.
 //
 
-import "6.824/labrpc"
+// kvctrler只是用来管理configuration，换句话说就是管理配置信息
+// 比如移动或者删除，只是相当于改变元数据，并不涉及到实际到操作，所以还是比较简单的
+
+import (
+	"6.824/labrpc"
+	"fmt"
+	uuid "github.com/satori/go.uuid"
+)
 import "time"
 import "crypto/rand"
 import "math/big"
@@ -12,6 +19,10 @@ import "math/big"
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// Your data here.
+}
+
+func generateUUID() string {
+	return fmt.Sprintf("%s-%d", uuid.NewV4(), time.Now().UnixNano())
 }
 
 func nrand() int64 {
@@ -32,12 +43,13 @@ func (ck *Clerk) Query(num int) Config {
 	args := &QueryArgs{}
 	// Your code here.
 	args.Num = num
+	args.UUID = generateUUID()
 	for {
 		// try each known server.
 		for _, srv := range ck.servers {
 			var reply QueryReply
 			ok := srv.Call("ShardCtrler.Query", args, &reply)
-			if ok && reply.WrongLeader == false {
+			if ok && reply.WrongLeader == false && reply.Err == OK {
 				return reply.Config
 			}
 		}
@@ -49,13 +61,13 @@ func (ck *Clerk) Join(servers map[int][]string) {
 	args := &JoinArgs{}
 	// Your code here.
 	args.Servers = servers
-
+	args.UUID = generateUUID()
 	for {
 		// try each known server.
 		for _, srv := range ck.servers {
 			var reply JoinReply
 			ok := srv.Call("ShardCtrler.Join", args, &reply)
-			if ok && reply.WrongLeader == false {
+			if ok && reply.WrongLeader == false && reply.Err == OK {
 				return
 			}
 		}
@@ -67,13 +79,13 @@ func (ck *Clerk) Leave(gids []int) {
 	args := &LeaveArgs{}
 	// Your code here.
 	args.GIDs = gids
-
+	args.UUID = generateUUID()
 	for {
 		// try each known server.
 		for _, srv := range ck.servers {
 			var reply LeaveReply
 			ok := srv.Call("ShardCtrler.Leave", args, &reply)
-			if ok && reply.WrongLeader == false {
+			if ok && reply.WrongLeader == false && reply.Err == OK {
 				return
 			}
 		}
@@ -86,13 +98,13 @@ func (ck *Clerk) Move(shard int, gid int) {
 	// Your code here.
 	args.Shard = shard
 	args.GID = gid
-
+	args.UUID = generateUUID()
 	for {
 		// try each known server.
 		for _, srv := range ck.servers {
 			var reply MoveReply
 			ok := srv.Call("ShardCtrler.Move", args, &reply)
-			if ok && reply.WrongLeader == false {
+			if ok && reply.WrongLeader == false && reply.Err == OK {
 				return
 			}
 		}
